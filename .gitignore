@@ -1,0 +1,16 @@
+# Arquivos ede sistemas
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Editores de código
+.vscode/
+.idea/
+
+# PHP e pacotes
+vendor/
+
+# Configurações de banco e credenciais sensíveis
+config/db.php
+.env
+*.env
