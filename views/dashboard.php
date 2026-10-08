@@ -11,21 +11,44 @@ require_once '../config/db.php';
 
 $usuario_id = $_SESSION['usuario_id'];
 
-// 1. Consulta dos serviços do usuário
-$stmtServicos = $pdo->prepare("
+// Captura filtros de status e busca
+$filtroStatus = $_GET['status'] ?? null;
+$filtroBusca = trim($_GET['busca'] ?? '');
+
+// 1. Construção dinâmica da consulta SQL dos serviços do usuário
+$sql = "
     SELECT s.id, s.descricao, s.status_do_servico, s.valor, u.nome as usuario_nome 
     FROM servicos s 
     JOIN usuarios u ON s.usuario_id = u.id 
     WHERE s.usuario_id = :usuario_id
-");
-$stmtServicos->execute([':usuario_id' => $usuario_id]);
+";
+
+$paramsServicos = [':usuario_id' => $usuario_id];
+
+// Aplicação do filtro de Status
+if (!empty($filtroStatus)) {
+    $sql .= " AND s.status_do_servico = :status_do_servico";
+    $paramsServicos[':status_do_servico'] = $filtroStatus;
+}
+
+// Aplicação do filtro de Busca
+if (!empty($filtroBusca)) {
+    $sql .= " AND s.descricao LIKE :busca";
+    $paramsServicos[':busca'] = '%' . $filtroBusca . '%';
+}
+
+$stmtServicos = $pdo->prepare($sql);
+$stmtServicos->execute($paramsServicos);
 $servicos = $stmtServicos->fetchAll(PDO::FETCH_ASSOC);
 
-// 2. Consulta para valor total acumular na visão do dashboard
-$stmtValor = $pdo->prepare('SELECT SUM(s.valor) as total FROM servicos WHERE usuario_id = :usuario_id');
+
+// 2. Consulta para valor total acumulado dos serviços finalizados
+$stmtValor = $pdo->prepare("SELECT SUM(s.valor) as total FROM servicos WHERE usuario_id = :usuario_id AND status_do_servico = 'Finalizado'");
 $stmtValor->execute([':usuario_id' => $usuario_id]);
 $total = $stmtValor->fetch(PDO::FETCH_ASSOC);
-$valorTotal = $total['total'] ?? 0;
+
+$valorTotal = (float) ($total['total'] ?? 0);
+$valorComissao = $valorTotal * 0.10;
 
 $dataAtual = date('d/m/Y');
 ?>
@@ -42,13 +65,15 @@ $dataAtual = date('d/m/Y');
     <h1>Bem-vindo, <?= htmlspecialchars($_SESSION['usuario_nome'] ?? 'Usuário'); ?>!</h1>
     <p>Data atual: <?= $dataAtual; ?></p>
 
-    <!-- Exibição de Mensagens de Sessão -->
+    <!-- Exibição de Mensagens de Sessão (Suporta 'sucesso' e 'success') -->
     <?php if (isset($_SESSION['sucesso'])): ?>
-        <p style="color: green;"><?= $_SESSION['sucesso']; unset($_SESSION['sucesso']); ?></p>
+        <p style="color: green;"><?= htmlspecialchars($_SESSION['sucesso']); unset($_SESSION['sucesso']); ?></p>
+    <?php elseif (isset($_SESSION['success'])): ?>
+        <p style="color: green;"><?= htmlspecialchars($_SESSION['success']); unset($_SESSION['success']); ?></p>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['erro'])): ?>
-        <p style="color: red;"><?= $_SESSION['erro']; unset($_SESSION['erro']); ?></p>
+        <p style="color: red;"><?= htmlspecialchars($_SESSION['erro']); unset($_SESSION['erro']); ?></p>
     <?php endif; ?>
 
     <main>
@@ -57,7 +82,7 @@ $dataAtual = date('d/m/Y');
             <br><br>
 
             <p><strong>Valor Total Acumulado:</strong> R$ <?= number_format($valorTotal, 2, ",", "."); ?></p>
-
+            <p><strong>Comissão (10%):</strong> R$ <?= number_format($valorComissao, 2, ",", "."); ?></p>
             <h3>Serviços cadastrados</h3>
 
             <?php if (!empty($servicos)): ?>
@@ -70,6 +95,7 @@ $dataAtual = date('d/m/Y');
                             <th>Valor</th>
                             <th>Status</th>
                             <th>Ações</th>
+                            <th>Comissão</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -82,11 +108,18 @@ $dataAtual = date('d/m/Y');
                                 <td><?= htmlspecialchars($servico['status_do_servico']); ?></td>
                                 <td>
                                     <?php if ($servico['status_do_servico'] === 'Pendente'): ?> 
-                                        <a href="editar_servico.php?id=<?= $servico['id']; ?>">Alterar</a> |
-                                        <a href="../actions/fazer_excluir_servico.php?id=<?= $servico['id']; ?>" onclick="return confirm('Tem certeza?');">Excluir</a> |
-                                        <a href="../actions/fazer_finalizar_servico.php?id=<?= $servico['id']; ?>">Finalizar</a>
+                                        <a href="editar_servico.php?id=<?= urlencode($servico['id']); ?>">Alterar</a> |
+                                        <a href="../actions/fazer_excluir_servico.php?id=<?= urlencode($servico['id']); ?>" onclick="return confirm('Tem certeza que deseja excluir?');">Excluir</a> |
+                                        <a href="../actions/fazer_finalizar_servico.php?id=<?= urlencode($servico['id']); ?>">Finalizar</a>
                                     <?php else: ?>
                                         <span>Sem ações disponíveis</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($servico['status_do_servico'] === 'Finalizado'): ?>
+                                        R$ <?= number_format($servico['valor'] * 0.10, 2, ",", "."); ?>
+                                    <?php else: ?>
+                                        <span>Pendente</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>

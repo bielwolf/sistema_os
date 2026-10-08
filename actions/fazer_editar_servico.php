@@ -22,24 +22,29 @@ $valor = $_POST['valor'] ?? '';
 $usuario_id = $_SESSION['usuario_id'];
 
 // Validação dos campos obrigatórios
-if (empty($id) || !is_numeric($id) || empty($descricao) || !is_numeric($valor) && $valor <= 0) {
+if (empty($id) || !is_numeric($id) || empty($descricao) || !is_numeric($valor) || $valor <= 0) {
     $_SESSION['erro'] = 'Preencha todos os campos com valores válidos.';
-    header('Location: ../views/editar_servico.php?id' . urlencode($id));
+    header('Location: ../views/editar_servico.php?id=' . urlencode($id));
     exit();
 
 }
     
 try{
     // Executa a atualização garantindo a propriedade do registro
-    $stmt = $pdo->prepare('UPDATE servicos SET descricao = :descricao, valor = :valor WHERE id = :id AND usuario_id = :usuario_id');
+    $stmt = $pdo->prepare('UPDATE servicos SET descricao = :descricao, valor = :valor WHERE id = :id AND usuario_id = :usuario_id AND status_do_servico = "Pendente"');
     $stmt-> execute([
         ':descricao' => $descricao,
         ':valor' => $valor,
         ':id' => $id,
-        ':usuario_Id' => $usuario_id,
+        ':usuario_id' => $usuario_id,
     ]);
 
-    $_SESSION['sucesso'] = 'Serviço atualizado com sucesso! ';
+    if ($stmt->rowCount() > 0) {
+        $_SESSION['success'] = 'Serviço atualizado com sucesso!';
+    } else {
+        $_SESSION['erro'] = 'Não foi possivel alterar o serviço.';
+    } 
+
     header('Location: ../views/dashboard.php');
     exit();
 

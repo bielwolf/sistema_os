@@ -22,7 +22,7 @@ $valor = $_POST['valor'] ?? '';
 $usuario_id = $_SESSION['usuario_id'];
 
 // Validação dos campos recebidos
-if (empty($descricao) || !is_numeric($valor) ||$valor <= 0 || empty($usuario_id)) {
+if (empty($descricao) || !is_numeric($valor) || $valor <= 0 || empty($usuario_id)) {
     $_SESSION['erro'] = "Preencha a descrição e um valor válido para o serviço.";
     header("Location: ../views/cadastrar_servico.php");
     exit();

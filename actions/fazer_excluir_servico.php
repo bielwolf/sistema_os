@@ -18,20 +18,22 @@ if (!empty($id) && is_numeric($id)) {
 
     try {
         // Remove o serviço garantindo o escopo de segurança
-        $stmt = $pdo->prepare('DELETE FROM servicos WHERE id = :id AND usuario_id = :usuario_id');
+        $stmt = $pdo->prepare('DELETE FROM servicos WHERE id = :id AND usuario_id = :usuario_id AND status_do_servico = "Pendente"');
         $stmt->execute([
             ':id' => $id,
             ':usuario_id' => $usuario_id,
         ]);
 
-        $_SESSION['sucesso'] = 'Serviço excluído com sucesso!';
+        $stmt->rowCount() > 0 ? $_SESSION['success'] = 'Serviço excluído com sucesso!' 
+        : $_SESSION['error'] = 'Erro ao tentar excluir o serviço.';
+
         header('Location: ../views/dashboard.php');
         exit();
 
     } catch (PDOException $e) {
         // Trata falhas de bancos de dados sem export detalhes sensíveis 
         $_SESSION['erro'] = 'Erro ao tentar apagar com sucesso.';
-        header('Location: ../views/cadastrar_servico.php');
+        header('Location: ../views/dashboard.php');
         exit(); 
     }
 } else {
